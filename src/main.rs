@@ -1,6 +1,7 @@
 use std::fmt;
 use std::fs::File;
 use std::io::{self, BufRead};
+use std::ops::Range;
 use std::path::Path;
 
 #[derive(Debug)]
@@ -9,7 +10,7 @@ struct Sensor {
     y: i64,
     closest_x: i64,
     closest_y: i64,
-    dist: i64
+    dist: i64,
 }
 
 impl Sensor {
@@ -19,8 +20,21 @@ impl Sensor {
             y,
             closest_x,
             closest_y,
-            dist: manhattan_dist(x, y, closest_x, closest_y)
+            dist: manhattan_dist(x, y, closest_x, closest_y),
         }
+    }
+
+    pub fn no_beacons(&self, line_num: i64) -> Range<i64> {
+        let line_dist = (line_num - self.y).abs();
+        if line_dist > self.dist {
+            return 0..0; // Empty range
+        }
+
+        let remaining_x = self.dist - line_dist;
+        let left = self.x - remaining_x;
+        let right = self.x + remaining_x + 1;
+
+        left..right
     }
 }
 
@@ -41,12 +55,20 @@ fn manhattan_dist(x1: i64, y1: i64, x2: i64, y2: i64) -> i64 {
 fn no_distress_count(line: i64, sensors: &Vec<Sensor>) -> u32 {
     let mut unusable_count: u32 = 0;
 
-    for sensor in sensors.iter() {
-        let line_x = sensor.x;
-        let line_y = line;
-        let dist = (line - sensor.y).abs();
-        unusable_count+=1;
-        // ################ Continue here
+    let mut beacons_on_line: Vec<(i64, i64)> = sensors.iter().map(|s| (s.closest_x, s.closest_y)).filter(|&s| s.1 == line).collect();
+    beacons_on_line.dedup();
+    let beacon_count: usize = beacons_on_line.len();
+    println!("  Beacons on line: {}", beacon_count);
+    let mut ranges: Vec<Range<i64>> = sensors.iter().map(|s| s.no_beacons(line)).collect();
+    ranges.retain(|r| r.start != r.end);
+    ranges.sort_by(|a, b| {
+        a.start
+            .cmp(&b.start)
+            .then_with(|| (a.end - a.start).cmp(&(b.end - b.start)))
+    });
+
+    for r in ranges.iter() {
+        println!("  Range: {}..{}", r.start, r.end);
     }
 
     unusable_count
