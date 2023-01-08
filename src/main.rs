@@ -42,10 +42,11 @@ impl Sensor {
 
 impl fmt::Display for Sensor {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let no_beacons = self.no_beacon_range(11);
         write!(
             f,
-            "Sensor ({},{}) => closest ({},{}) dist={}",
-            self.x, self.y, self.closest_x, self.closest_y, self.dist
+            "Sensor ({},{}) => closest ({},{}) dist={}, range for 11 (###) {}..{}",
+            self.x, self.y, self.closest_x, self.closest_y, self.dist, no_beacons.start, no_beacons.end
         )
     }
 }
@@ -54,7 +55,7 @@ fn manhattan_dist(x1: i64, y1: i64, x2: i64, y2: i64) -> i64 {
     (x1 - x2).abs() + (y1 - y2).abs()
 }
 
-fn no_distress_count(line: i64, sensors: &Vec<Sensor>, min_x: i64, max_x: i64) -> i64 {
+fn no_distress_count(line: i64, sensors: &Vec<Sensor>, min_x: i64, after_max_x: i64) -> i64 {
     let mut unusable_count: i64 = 0;
 
     let mut beacons_on_line: Vec<(i64, i64)> = sensors
@@ -79,13 +80,13 @@ fn no_distress_count(line: i64, sensors: &Vec<Sensor>, min_x: i64, max_x: i64) -
         let curr = &ranges[n];
 
         // ################ Needs an update
-        let coverage = if curr.end < range_seen || curr.start >= max_x {
+        let coverage = if curr.end < range_seen || curr.start >= after_max_x {
             0
         } else {
-            cmp::min(curr.end, max_x) - cmp::max(curr.start, range_seen)
+            cmp::min(curr.end, after_max_x) - cmp::max(curr.start, range_seen)
         };        
 
-        // println!("> Range: {}..{} adds: {}", curr.start, curr.end, coverage);
+        println!("    > Range: {}..{} adds: {} (with range_seen {})", curr.start, curr.end, coverage, range_seen);
 
         range_seen = cmp::max(range_seen, curr.end);
         unusable_count += coverage;
@@ -103,7 +104,7 @@ fn no_distress_count(line: i64, sensors: &Vec<Sensor>, min_x: i64, max_x: i64) -
     */
 
     // ############ I think this can go
-    unusable_count -= beacon_count as i64;
+    // unusable_count -= beacon_count as i64;
 
     unusable_count
 }
@@ -113,6 +114,7 @@ fn main() {
     for n in 0..21 {
         let count = no_distress_count(n, &sensors, 0, 21);
         println!("{}) Unusable positions: {}", n, count);
+        println!();
     }    
 }
 
