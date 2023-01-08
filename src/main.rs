@@ -7,24 +7,28 @@ use std::path::Path;
 
 fn main() {
     let sensors = read_sensors("./Input.txt");
-    let after_max_coord: i64 = 4000000;
+    let after_max_coord: i64 = 4000001;
     for n in 2639657..2639658 {
         let unusable_count = not_usable_count(n, &sensors, 0, after_max_coord);
-        
-        if unusable_count < after_max_coord {
-            println!(" ==> {}: usable positions: {}", n, after_max_coord-unusable_count);
+        let usable_count = after_max_coord - unusable_count;
+
+        if usable_count > 0 {
+            println!(" ==> {}: usable positions: {}", n, usable_count);
         }
-        
+
         let x: i64 = 3435885;
         let y: i64 = 2639657;
-        println!("Result: {}", x*after_max_coord+y);
-    }    
+        println!("Result: {}", x * after_max_coord + y);
+    }
 }
 
 fn not_usable_count(line: i64, sensors: &Vec<Sensor>, min_x: i64, after_max_x: i64) -> i64 {
     let mut unusable_count: i64 = 0;
 
-    let mut sensor_ranges: Vec<(&Sensor, Range<i64>)> = sensors.iter().map(|s|(s, s.no_beacon_range(line))).collect();
+    let mut sensor_ranges: Vec<(&Sensor, Range<i64>)> = sensors
+        .iter()
+        .map(|s| (s, s.no_beacon_range(line)))
+        .collect();
     sensor_ranges.retain(|r| r.1.start != r.1.end);
     sensor_ranges.sort_by(|a, b| {
         a.1.start
@@ -38,7 +42,7 @@ fn not_usable_count(line: i64, sensors: &Vec<Sensor>, min_x: i64, after_max_x: i
 
         let start = curr.1.start;
         let end = curr.1.end;
-        
+
         let coverage = if end < range_seen || start >= after_max_x {
             0
         } else if start >= range_seen && start < after_max_x {
@@ -47,9 +51,12 @@ fn not_usable_count(line: i64, sensors: &Vec<Sensor>, min_x: i64, after_max_x: i
             cmp::min(end, after_max_x) - range_seen
         } else {
             0
-        };        
+        };
 
-        println!(" ◦ Sensor ({},{}) with {}..{} adds: {} (range_seen: {})", curr.0.x, curr.0.y, curr.1.start, curr.1.end, coverage, range_seen);
+        println!(
+            " ◦ Sensor ({},{}) with {}..{} adds: {} (range_seen: {})",
+            curr.0.x, curr.0.y, curr.1.start, curr.1.end, coverage, range_seen
+        );
 
         range_seen = cmp::max(range_seen, curr.1.end);
         unusable_count += coverage;
@@ -58,14 +65,10 @@ fn not_usable_count(line: i64, sensors: &Vec<Sensor>, min_x: i64, after_max_x: i
     unusable_count
 }
 
-
-
 fn read_sensors<P>(filename: P) -> Vec<Sensor>
 where
     P: AsRef<Path>,
 {
-    println!();
-
     let mut sensors = Vec::new();
     if let Ok(lines) = read_lines(filename) {
         let mut n = 0;
