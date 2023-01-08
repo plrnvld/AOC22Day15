@@ -5,126 +5,60 @@ use std::io::{self, BufRead};
 use std::ops::Range;
 use std::path::Path;
 
-#[derive(Debug)]
-struct Sensor {
-    x: i64,
-    y: i64,
-    closest_x: i64,
-    closest_y: i64,
-    dist: i64,
-}
-
-impl Sensor {
-    pub fn new(x: i64, y: i64, closest_x: i64, closest_y: i64) -> Sensor {
-        Sensor {
-            x,
-            y,
-            closest_x,
-            closest_y,
-            dist: manhattan_dist(x, y, closest_x, closest_y),
+fn main() {
+    let sensors = read_sensors("./Input.txt");
+    let after_max_coord: i64 = 4000000;
+    for n in 2639657..2639658 {
+        let unusable_count = not_usable_count(n, &sensors, 0, after_max_coord);
+        
+        if unusable_count < after_max_coord {
+            println!(" ==> {}: usable positions: {}", n, after_max_coord-unusable_count);
         }
-    }
-
-    pub fn no_beacon_range(&self, line_num: i64) -> Range<i64> {
-        let line_dist = (line_num - self.y).abs();
-
-        if line_dist > self.dist {
-            return 0..0; // Empty range
-        }
-
-        let remaining_x = self.dist - line_dist;
-        let left = self.x - remaining_x;
-        let right = self.x + remaining_x + 1;
-
-        left..right
-    }
+        
+        let x: i64 = 3435885;
+        let y: i64 = 2639657;
+        println!("Result: {}", x*after_max_coord+y);
+    }    
 }
 
-impl fmt::Display for Sensor {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let no_beacons = self.no_beacon_range(11);
-        write!(
-            f,
-            "Sensor ({},{}) => closest ({},{}) dist={}, range for 11 (###) {}..{}",
-            self.x, self.y, self.closest_x, self.closest_y, self.dist, no_beacons.start, no_beacons.end
-        )
-    }
-}
-
-fn manhattan_dist(x1: i64, y1: i64, x2: i64, y2: i64) -> i64 {
-    (x1 - x2).abs() + (y1 - y2).abs()
-}
-
-fn no_distress_count(line: i64, sensors: &Vec<Sensor>, min_x: i64, after_max_x: i64) -> i64 {
+fn not_usable_count(line: i64, sensors: &Vec<Sensor>, min_x: i64, after_max_x: i64) -> i64 {
     let mut unusable_count: i64 = 0;
 
-    let mut beacons_on_line: Vec<(i64, i64)> = sensors
-        .iter()
-        .map(|s| (s.closest_x, s.closest_y))
-        .filter(|&s| s.1 == line)
-        .collect();
-    beacons_on_line.dedup();
-    let beacon_count: usize = beacons_on_line.len();
-
-    let mut ranges: Vec<Range<i64>> = sensors.iter().map(|s| s.no_beacon_range(line)).collect();
-    ranges.retain(|r| r.start != r.end);
-    ranges.sort_by(|a, b| {
-        a.start
-            .cmp(&b.start)
-            .then_with(|| (a.end - a.start).cmp(&(b.end - b.start)))
+    let mut sensor_ranges: Vec<(&Sensor, Range<i64>)> = sensors.iter().map(|s|(s, s.no_beacon_range(line))).collect();
+    sensor_ranges.retain(|r| r.1.start != r.1.end);
+    sensor_ranges.sort_by(|a, b| {
+        a.1.start
+            .cmp(&b.1.start)
+            .then_with(|| (a.1.end - a.1.start).cmp(&(b.1.end - b.1.start)))
     });
 
-    let range_len = ranges.len();
     let mut range_seen: i64 = min_x;
-    for n in 0..range_len {
-        let curr = &ranges[n];
+    for n in 0..sensor_ranges.len() {
+        let curr = &sensor_ranges[n];
 
-        // ################ Needs an update
-        let coverage = if curr.end < range_seen || curr.start >= after_max_x {
+        let start = curr.1.start;
+        let end = curr.1.end;
+        
+        let coverage = if end < range_seen || start >= after_max_x {
             0
+        } else if start >= range_seen && start < after_max_x {
+            cmp::min(end, after_max_x) - start
+        } else if start < range_seen && range_seen < after_max_x {
+            cmp::min(end, after_max_x) - range_seen
         } else {
-            cmp::min(curr.end, after_max_x) - cmp::max(curr.start, range_seen)
+            0
         };        
 
-        println!("    > Range: {}..{} adds: {} (with range_seen {})", curr.start, curr.end, coverage, range_seen);
+        println!(" ◦ Sensor ({},{}) with {}..{} adds: {} (range_seen: {})", curr.0.x, curr.0.y, curr.1.start, curr.1.end, coverage, range_seen);
 
-        range_seen = cmp::max(range_seen, curr.end);
+        range_seen = cmp::max(range_seen, curr.1.end);
         unusable_count += coverage;
     }
-
-    /*
-    println!();
-    println!(
-        "Subtracting {} - {} = {}",
-        unusable_count,
-        beacon_count,
-        unusable_count - beacon_count as i64
-    );
-    println!();
-    */
-
-    // ############ I think this can go
-    // unusable_count -= beacon_count as i64;
 
     unusable_count
 }
 
-fn main() {
-    let sensors = read_sensors("./Example.txt");
-    for n in 0..21 {
-        let count = no_distress_count(n, &sensors, 0, 21);
-        println!("{}) Unusable positions: {}", n, count);
-        println!();
-    }    
-}
 
-fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where
-    P: AsRef<Path>,
-{
-    let file = File::open(filename)?;
-    Ok(io::BufReader::new(file).lines())
-}
 
 fn read_sensors<P>(filename: P) -> Vec<Sensor>
 where
@@ -156,11 +90,61 @@ where
         }
     }
 
-    println!();
-
     sensors
 }
 
-// 6607798 too high
-// 6697770 too high
-// 4748135 right
+fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
+where
+    P: AsRef<Path>,
+{
+    let file = File::open(filename)?;
+    Ok(io::BufReader::new(file).lines())
+}
+
+impl fmt::Display for Sensor {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Sensor ({},{}) => closest ({},{}) dist={}",
+            self.x, self.y, self.closest_x, self.closest_y, self.dist
+        )
+    }
+}
+
+fn manhattan_dist(x1: i64, y1: i64, x2: i64, y2: i64) -> i64 {
+    (x1 - x2).abs() + (y1 - y2).abs()
+}
+
+struct Sensor {
+    x: i64,
+    y: i64,
+    closest_x: i64,
+    closest_y: i64,
+    dist: i64,
+}
+
+impl Sensor {
+    pub fn new(x: i64, y: i64, closest_x: i64, closest_y: i64) -> Sensor {
+        Sensor {
+            x,
+            y,
+            closest_x,
+            closest_y,
+            dist: manhattan_dist(x, y, closest_x, closest_y),
+        }
+    }
+
+    pub fn no_beacon_range(&self, line_num: i64) -> Range<i64> {
+        let line_dist = (line_num - self.y).abs();
+
+        if line_dist > self.dist {
+            return 0..0;
+        }
+
+        let remaining_x = self.dist - line_dist;
+        let left = self.x - remaining_x;
+        let right = self.x + remaining_x + 1;
+
+        left..right
+    }
+}
