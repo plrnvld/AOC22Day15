@@ -104,6 +104,7 @@ fn no_distress_count(line: i64, sensors: &Vec<Sensor>, min_x: i64, max_x: i64) -
     println!();
     */
 
+    // ############ I think this can go
     unusable_count -= beacon_count as i64;
 
     unusable_count
