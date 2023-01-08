@@ -21,7 +21,7 @@ impl Sensor {
             y,
             closest_x,
             closest_y,
-            dist: manhattan_dist(x, y, closest_x, closest_y)
+            dist: manhattan_dist(x, y, closest_x, closest_y),
         }
     }
 
@@ -54,7 +54,7 @@ fn manhattan_dist(x1: i64, y1: i64, x2: i64, y2: i64) -> i64 {
     (x1 - x2).abs() + (y1 - y2).abs()
 }
 
-fn no_distress_count(line: i64, sensors: &Vec<Sensor>) -> i64 {
+fn no_distress_count(line: i64, sensors: &Vec<Sensor>, min_x: i64, max_x: i64) -> i64 {
     let mut unusable_count: i64 = 0;
 
     let mut beacons_on_line: Vec<(i64, i64)> = sensors
@@ -74,43 +74,47 @@ fn no_distress_count(line: i64, sensors: &Vec<Sensor>) -> i64 {
     });
 
     let range_len = ranges.len();
-    let mut range_seen: i64 = i64::MIN;
+    let mut range_seen: i64 = min_x;
     for n in 0..range_len {
         let curr = &ranges[n];
-        let coverage = if curr.end < range_seen {
+
+        // ################ Needs an update
+        let coverage = if curr.end < range_seen || curr.start >= max_x {
             0
-        } else if curr.start > range_seen {
-            curr.end - curr.start
+        } else if curr.start >= range_seen {
+            cmp::min(curr.end, max_x) - curr.start
         } else {
-            curr.end - range_seen
+            cmp::min(curr.end, max_x) - range_seen
         };
 
-        println!(
-            "> Range: {}..{} adds: {}",
-            curr.start, curr.end, coverage
-        );
+        // println!("> Range: {}..{} adds: {}", curr.start, curr.end, coverage);
 
         range_seen = cmp::max(range_seen, curr.end);
         unusable_count += coverage;
     }
+
+    /*
     println!();
     println!(
-        "Subtracting: {} - {}, unusable positions: {}",
+        "Subtracting {} - {} = {}",
         unusable_count,
         beacon_count,
         unusable_count - beacon_count as i64
     );
     println!();
-    
+    */
+
     unusable_count -= beacon_count as i64;
 
     unusable_count
 }
 
 fn main() {
-    let sensors = read_sensors("./Input.txt");
-    let count = no_distress_count(2000000, &sensors);
-    println!("Unusable positions: {}", count);
+    let sensors = read_sensors("./Example.txt");
+    for n in 0..20 {
+        let count = no_distress_count(n, &sensors, 0, 20);
+        println!("{}) Unusable positions: {}", n, count);
+    }    
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
@@ -126,7 +130,7 @@ where
     P: AsRef<Path>,
 {
     println!();
-    
+
     let mut sensors = Vec::new();
     if let Ok(lines) = read_lines(filename) {
         let mut n = 0;
@@ -152,7 +156,7 @@ where
     }
 
     println!();
-    
+
     sensors
 }
 
