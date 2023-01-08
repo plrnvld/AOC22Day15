@@ -81,11 +81,9 @@ fn no_distress_count(line: i64, sensors: &Vec<Sensor>, min_x: i64, max_x: i64) -
         // ################ Needs an update
         let coverage = if curr.end < range_seen || curr.start >= max_x {
             0
-        } else if curr.start >= range_seen {
-            cmp::min(curr.end, max_x) - curr.start
         } else {
-            cmp::min(curr.end, max_x) - range_seen
-        };
+            cmp::min(curr.end, max_x) - cmp::max(curr.start, range_seen)
+        };        
 
         // println!("> Range: {}..{} adds: {}", curr.start, curr.end, coverage);
 
@@ -112,8 +110,8 @@ fn no_distress_count(line: i64, sensors: &Vec<Sensor>, min_x: i64, max_x: i64) -
 
 fn main() {
     let sensors = read_sensors("./Example.txt");
-    for n in 0..20 {
-        let count = no_distress_count(n, &sensors, 0, 20);
+    for n in 0..21 {
+        let count = no_distress_count(n, &sensors, 0, 21);
         println!("{}) Unusable positions: {}", n, count);
     }    
 }
